@@ -245,7 +245,7 @@ def main():
                                 }
                             )
 
-        # --- Latest response: 이미지 왼쪽, 텍스트 오른쪽, 캡션 포함 ---
+        # --- Latest response: 이미지가 텍스트를 밀어내는 float 레이아웃 ---
         if st.session_state.chat_history:
             last = st.session_state.chat_history[-1]
             if last["role"] == "assistant":
@@ -272,48 +272,58 @@ def main():
                     st.markdown(f"**{last['role_name']}**")
                     st.markdown(f"```text\n{ascii_art}\n```")
 
-                    # 이미지(왼쪽) + 본문(오른쪽)
-                    c1, c2 = st.columns([3, 4])
+                    img_url = last.get("image_url")
 
-                    with c1:
-                        img_url = last.get("image_url")
-
-                        if img_url:
-                            # 파란 테두리 + 이미지
-                            with st.container(border=True):
-                                st.image(img_url, use_column_width=True)
-                        else:
-                            # 이미지 없으면 회색 placeholder
-                            st.markdown(
-                                """
-<div style="
-    border:3px solid #4da3ff;
-    background:#e6e6e6;
-    width:100%;
-    padding-top:75%;
-">
-</div>
-""",
-                                unsafe_allow_html=True,
-                            )
-
-                        # 이미지 캡션 (작고, 얇고, 연한 글씨)
+                    if img_url:
+                        # 이미지가 왼쪽에 떠 있고, 텍스트가 오른쪽/아래로 흘러내리는 구조
                         st.markdown(
                             f"""
-<p style="
-    font-size:0.8rem;
-    color:#bbbbbb;
-    font-weight:300;
-    margin-top:0.4rem;
-">
-{short_desc} · {caption_text}
-</p>
+<div style="overflow:auto; margin-top:0.5rem;">
+
+  <!-- 왼쪽 이미지 카드 -->
+  <div style="
+      float:left;
+      margin-right:24px;
+      margin-bottom:8px;
+      border-radius:16px;
+      border:2px solid #e0e0e0;
+      background:#f5f5f5;
+      padding:6px;
+      max-width:260px;
+  ">
+    <img src="{img_url}"
+         style="width:100%; border-radius:12px; display:block;">
+
+    <div style="
+        font-size:0.75rem;
+        color:#aaaaaa;
+        font-weight:300;
+        margin-top:4px;
+    ">
+      {short_desc} · {caption_text}
+    </div>
+  </div>
+
+  <!-- 오른쪽 + 아래쪽 텍스트 영역 -->
+  <div style="overflow:hidden; font-size:0.95rem; line-height:1.6;">
 """,
                             unsafe_allow_html=True,
                         )
 
-                    with c2:
-                        # 본문 텍스트
+                        # 본문 텍스트는 평소처럼 markdown으로
+                        st.markdown(last["content"])
+
+                        # float 해제
+                        st.markdown(
+                            """
+  </div>
+</div>
+<div style="clear:both;"></div>
+""",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        # 이미지 없으면 그냥 텍스트만
                         st.markdown(last["content"])
 
     # ===== 오른쪽: History bubble view =====
