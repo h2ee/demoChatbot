@@ -132,22 +132,20 @@ def call_openai_chat(
         raise RuntimeError(f"OpenAI API error: {e}") from e
 
 
-def generate_image_512(api_key: str, prompt: str) -> str:
+def generate_image(api_key: str, prompt: str) -> str:
     """
-    512x512 이미지 1장 생성.
-    실패하면 RuntimeError를 발생시켜서 UI에서 메시지로 보여줄 수 있게 함.
+    1024x1024 이미지 1장 생성 (현재 gpt-image-1 지원 사이즈).
     """
     client = OpenAI(api_key=api_key)
     try:
         img = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
-            size="512x512",
+            size="1024x1024",  # ✅ 수정됨
             n=1,
         )
         return img.data[0].url
     except OpenAIError as e:
-        # 여기서 바로 None으로 숨기지 말고 에러를 위로 전달
         raise RuntimeError(f"Image generation failed: {e}") from e
 
 
@@ -248,7 +246,7 @@ def main():
                                 f"{role_name} style concept illustration for:\n{clean_input}"
                             )
                             try:
-                                image_url = generate_image_512(api_key, img_prompt)
+                                image_url = generate_image(api_key, img_prompt)
                             except RuntimeError as img_err:
                                 # 여기서 직접 에러를 화면에 띄움
                                 st.warning(str(img_err))
