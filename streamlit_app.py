@@ -126,12 +126,12 @@ def call_openai_chat(
 
 
 # ------------------------------
-# 3. 이미지: 아주 단순한 placeholder (picsum)
+# 3. 이미지: picsum.photos 랜덤 placeholder
 # ------------------------------
 def generate_image_url(prompt: str) -> str:
     """
-    OpenAI, Unsplash 모두 쓰지 않고,
-    항상 picsum.photos 에서 랜덤 1024x1024 이미지를 사용.
+    OpenAI/Unsplash 대신, 항상 picsum.photos 에서 랜덤 1024x1024 이미지 사용.
+    prompt는 지금은 쓰지 않지만 시그니처를 맞추기 위해 인자로 둠.
     """
     return "https://picsum.photos/1024"
 
@@ -245,7 +245,7 @@ def main():
                                 }
                             )
 
-        # --- Latest response: 이미지가 텍스트를 밀어내는 float 레이아웃 ---
+        # --- Latest response: float 레이아웃 (이미지가 텍스트를 밀어냄) ---
         if st.session_state.chat_history:
             last = st.session_state.chat_history[-1]
             if last["role"] == "assistant":
@@ -275,7 +275,7 @@ def main():
                     img_url = last.get("image_url")
 
                     if img_url:
-                        # 이미지가 왼쪽에 떠 있고, 텍스트가 오른쪽/아래로 흘러내리는 구조
+                        # 이미지 카드(왼쪽 float) + 텍스트 영역(오른쪽/아래) HTML 래핑
                         st.markdown(
                             f"""
 <div style="overflow:auto; margin-top:0.5rem;">
@@ -304,13 +304,13 @@ def main():
     </div>
   </div>
 
-  <!-- 오른쪽 + 아래쪽 텍스트 영역 -->
+  <!-- 오른쪽/아래 텍스트 영역 -->
   <div style="overflow:hidden; font-size:0.95rem; line-height:1.6;">
 """,
                             unsafe_allow_html=True,
                         )
 
-                        # 본문 텍스트는 평소처럼 markdown으로
+                        # 본문 텍스트는 평소처럼 markdown
                         st.markdown(last["content"])
 
                         # float 해제
