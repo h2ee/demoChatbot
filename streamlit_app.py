@@ -1,6 +1,6 @@
 # streamlit_app.py
 # Role-based Creative Chatbot (no avatars)
-# - OpenAI 텍스트 + 512x512 이미지 생성
+
 # - Latest: 이미지 왼쪽 / 텍스트 오른쪽 / 얇은 캡션
 # - History: 작은 썸네일 + ASCII 아트 + 펼치기(expander)
 
@@ -9,7 +9,7 @@ from typing import List, Dict
 import requests
 import streamlit as st
 from openai import OpenAI, OpenAIError
-
+import urllib.parse
 
 # ------------------------------
 # 1. Role 정의 + ASCII 아트
@@ -134,19 +134,11 @@ def call_openai_chat(
 
 def generate_image(api_key: str, prompt: str) -> str:
     """
-    1024x1024 이미지 1장 생성 (현재 gpt-image-1 지원 사이즈).
+    임시 대체 버전: OpenAI 이미지 대신 Unsplash에서 유사 키워드 검색 이미지 가져오기.
     """
-    client = OpenAI(api_key=api_key)
-    try:
-        img = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1024x1024",  # ✅ 수정됨
-            n=1,
-        )
-        return img.data[0].url
-    except OpenAIError as e:
-        raise RuntimeError(f"Image generation failed: {e}") from e
+    query = urllib.parse.quote(prompt)
+    # 무료이면서 인증 불필요
+    return f"https://source.unsplash.com/1024x1024/?{query}"
 
 
 # ------------------------------
