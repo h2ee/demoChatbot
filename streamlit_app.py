@@ -357,7 +357,7 @@ def main():
     col_main, col_history = st.columns([2, 1])
 
     with col_main:
-        st.title("🎭 Role-based Creative Chatbot")
+        st.title("🎭 Talk with Chatbot")
         st.write("Select a creative role on the left and ask your question below.")
 
         example_text = role_info["example"]
@@ -431,7 +431,7 @@ def main():
 
     # -------- 오른쪽: 전체 대화 히스토리 (compact bubble + expander) --------
     with col_history:
-        st.subheader("Conversation History (bubble view)")
+        st.subheader("History")
 
         if not st.session_state.chat_history:
             st.info("아직 대화가 없습니다. 질문을 한 번 해보세요!")
