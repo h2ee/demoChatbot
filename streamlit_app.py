@@ -1,15 +1,9 @@
-# streamlit_app.py
-# Role-based Creative Chatbot (no avatars)
-
-# - Latest: 이미지 왼쪽 / 텍스트 오른쪽 / 얇은 캡션
-# - History: 작은 썸네일 + ASCII 아트 + 펼치기(expander)
-
 from typing import List, Dict
+import urllib.parse  # Unsplash 쿼리 인코딩용
 
-import requests
 import streamlit as st
 from openai import OpenAI, OpenAIError
-import urllib.parse
+
 
 # ------------------------------
 # 1. Role 정의 + ASCII 아트
@@ -95,7 +89,7 @@ stories behind the frame
 
 
 # ------------------------------
-# 2. OpenAI 텍스트 + 이미지 호출 함수
+# 2. OpenAI 텍스트 호출 함수
 # ------------------------------
 def call_openai_chat(
     api_key: str,
@@ -132,17 +126,25 @@ def call_openai_chat(
         raise RuntimeError(f"OpenAI API error: {e}") from e
 
 
+# ------------------------------
+# 3. 이미지: Unsplash 랜덤 이미지 사용
+# ------------------------------
 def generate_image(api_key: str, prompt: str) -> str:
     """
-    임시 대체 버전: OpenAI 이미지 대신 Unsplash에서 유사 키워드 검색 이미지 가져오기.
+    OpenAI 이미지 대신 Unsplash 랜덤 이미지 URL 생성.
+    api_key는 사용하지 않지만, 기존 시그니처를 맞추기 위해 둠.
     """
-    query = urllib.parse.quote(prompt)
-    # 무료이면서 인증 불필요
+    base_query = "abstract art"
+    if prompt:
+        base_query = prompt
+
+    query = urllib.parse.quote_plus(base_query)
+    # 1024x1024 랜덤 이미지
     return f"https://source.unsplash.com/1024x1024/?{query}"
 
 
 # ------------------------------
-# 3. Streamlit UI
+# 4. Streamlit UI
 # ------------------------------
 def main():
     st.set_page_config(
@@ -231,18 +233,12 @@ def main():
 
                         image_url = None
                         if answer is not None:
-                            # 1) 텍스트 답변은 이미 도착한 상태
-                            # 2) 이미지 생성은 별도의 try/except로 감싸서,
-                            #    실패해도 앱이 죽지 않고 에러 메시지만 보여주게 함
                             img_prompt = (
                                 f"{role_name} style concept illustration for:\n{clean_input}"
                             )
-                            try:
-                                image_url = generate_image(api_key, img_prompt)
-                            except RuntimeError as img_err:
-                                # 여기서 직접 에러를 화면에 띄움
-                                st.warning(str(img_err))
-                                image_url = None
+
+                            # Unsplash 이미지 URL 생성 (에러 거의 없음)
+                            image_url = generate_image(api_key, img_prompt)
 
                             # 히스토리 추가 (user + assistant)
                             st.session_state.chat_history.append(
@@ -294,22 +290,11 @@ def main():
 
                     with c1:
                         img_url = last.get("image_url")
+
                         if img_url:
-                            # 큰 정사각형 이미지 + 파란 테두리
-                            st.markdown(
-                                f"""
-<div style="
-    border:3px solid #4da3ff;
-    background:#e6e6e6;
-    width:100%;
-    padding:0;
-    box-sizing:border-box;
-">
-  <img src="{img_url}" style="width:100%;display:block;">
-</div>
-""",
-                                unsafe_allow_html=True,
-                            )
+                            # border 있는 컨테이너 + 이미지
+                            with st.container(border=True):
+                                st.image(img_url, use_column_width=True)
                         else:
                             # 이미지 없으면 회색 placeholder
                             st.markdown(
