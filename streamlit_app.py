@@ -1,5 +1,5 @@
 # streamlit_app.py
-# Role-based Creative Chatbot (Bubble UI + EmojiHub)
+# Role-based Creative Chatbot (Bubble UI + EmojiHub avatar + compact history)
 
 import os
 from typing import List, Dict
@@ -10,21 +10,31 @@ from openai import OpenAI, OpenAIError
 
 
 # ------------------------------
-# 0. EmojiHub (추가 API)
+# 0. EmojiHub (Avatar용 사람 이모지)
 # ------------------------------
 EMOJI_API_BASE = "https://emojihub.yurace.pro/api"
 
 
-def get_random_emoji() -> str:
-    """EmojiHub에서 랜덤 이모지 하나 가져오기 (실패해도 앱이 죽지 않게)."""
+def get_avatar_emoji() -> str:
+    """
+    EmojiHub에서 'smileys and people' 카테고리의 랜덤 이모지 하나 가져오기.
+    HTML 코드로 리턴해서 그대로 렌더링.
+    실패하면 기본 이모지 사용.
+    """
     try:
-        resp = requests.get(f"{EMOJI_API_BASE}/random", timeout=5)
+        # EmojiHub docs 기준: /random/category/smileys-and-people
+        resp = requests.get(
+            f"{EMOJI_API_BASE}/random/category/smileys-and-people", timeout=5
+        )
         resp.raise_for_status()
         data = resp.json()
         html_codes = data.get("htmlCode") or []
-        return "".join(html_codes)
+        if html_codes:
+            return "".join(html_codes)
     except Exception:
-        return ""  # 실패 시 그냥 이모지 없음
+        pass
+    # 실패 시 기본 사람 이모지
+    return "🧑‍🎨"
 
 
 # ------------------------------
@@ -144,9 +154,9 @@ def call_openai_chat(
                 "[Mock response]\n"
                 "지금은 OpenAI 크레딧이 부족해서 실제 모델을 호출할 수 없습니다.\n"
                 "대신, 이 역할이라면 이런 식으로 생각해 볼 수 있어요:\n\n"
-                f"- 장면의 감정, 구도, 리듬을 분리해서 하나씩 분석해 보기\n"
-                f"- 관객이 느끼길 원하는 감정을 먼저 정하고, 거기에 맞게 요소를 조합하기\n"
-                f"- 실제 촬영/퍼포먼스 전에 짧은 스케치를 여러 개 만들어 비교해 보기\n"
+                "- 장면의 감정, 구도, 리듬을 분리해서 하나씩 분석해 보기\n"
+                "- 관객이 느끼길 원하는 감정을 먼저 정하고, 거기에 맞게 요소를 조합하기\n"
+                "- 실제 촬영/퍼포먼스 전에 짧은 스케치를 여러 개 만들어 비교해 보기\n"
             )
         raise RuntimeError(f"OpenAI API error: {e}") from e
 
@@ -171,6 +181,25 @@ def inject_chat_css():
   font-size: 0.95rem;
 }
 
+.chat-bubble-inner {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.chat-avatar {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.7rem;
+}
+
+.chat-content {
+  flex: 1;
+}
+
 .chat-user {
   justify-content: flex-end;
 }
@@ -192,7 +221,7 @@ def inject_chat_css():
 .chat-role-header {
   font-size: 0.8rem;
   color: #555;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
   font-weight: 600;
 }
 
@@ -204,9 +233,10 @@ def inject_chat_css():
   color: #444;
 }
 
-.chat-emoji {
-  font-size: 1.4rem;
-  margin-bottom: 0.25rem;
+/* history 영역: 봇 말풍선 높이 고정 + overflow hidden */
+.chat-history-bot .chat-bubble {
+  max-height: 90px;
+  overflow: hidden;
 }
 </style>
         """,
@@ -214,6 +244,9 @@ def inject_chat_css():
     )
 
 
+# ------------------------------
+# 4. 말풍선 렌더 함수들
+# ------------------------------
 def render_user_bubble(text: str):
     st.markdown(
         f"""
@@ -227,16 +260,44 @@ def render_user_bubble(text: str):
     )
 
 
-def render_bot_bubble(text: str, role_name: str, ascii_art: str, emoji_html: str):
-    # role_name: "Video Director 🎬" 같은 이름
+def render_bot_bubble_main(text: str, role_name: str, ascii_art: str, emoji_html: str):
+    """메인 영역의 최신 답변용 (전체 텍스트 다 보여줌)."""
     st.markdown(
         f"""
 <div class="chat-container chat-bot">
   <div class="chat-bubble">
-    <div class="chat-role-header">{role_name}</div>
-    <div class="chat-ascii">{ascii_art}</div>
-    <div class="chat-emoji">{emoji_html}</div>
-    <div>{text}</div>
+    <div class="chat-bubble-inner">
+      <div class="chat-avatar">{emoji_html}</div>
+      <div class="chat-content">
+        <div class="chat-role-header">{role_name}</div>
+        <div class="chat-ascii">{ascii_art}</div>
+        <div>{text}</div>
+      </div>
+    </div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_bot_bubble_history_preview(role_name: str, ascii_art: str, emoji_html: str):
+    """
+    히스토리 뷰에서 사용하는 '압축 버전' 말풍선.
+    - 사람 이모지 + Role header + ASCII 아트만 보임
+    - 긴 답변 텍스트는 바로 아래 expander에 넣음
+    """
+    st.markdown(
+        f"""
+<div class="chat-container chat-bot chat-history-bot">
+  <div class="chat-bubble">
+    <div class="chat-bubble-inner">
+      <div class="chat-avatar">{emoji_html}</div>
+      <div class="chat-content">
+        <div class="chat-role-header">{role_name}</div>
+        <div class="chat-ascii">{ascii_art}</div>
+      </div>
+    </div>
   </div>
 </div>
 """,
@@ -245,7 +306,7 @@ def render_bot_bubble(text: str, role_name: str, ascii_art: str, emoji_html: str
 
 
 # ------------------------------
-# 4. Streamlit UI
+# 5. Streamlit UI
 # ------------------------------
 def main():
     st.set_page_config(
@@ -254,9 +315,9 @@ def main():
     )
     inject_chat_css()
 
-    # 세션 상태 초기화 (채팅 히스토리: role_name까지 저장)
+    # 세션 상태 초기화 (채팅 히스토리: role_name, avatar까지 저장)
     if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []  # {"role", "content", "role_name"}
+        st.session_state.chat_history = []  # {"role", "content", "role_name", "avatar"}
 
     # -------- 사이드바: API & Role 설정 --------
     with st.sidebar:
@@ -334,14 +395,16 @@ def main():
                             answer = None
 
                         if answer is not None:
-                            # 이모지 + 히스토리에 저장
-                            emoji_html = get_random_emoji()
+                            # 아바타 이모지 생성
+                            avatar = get_avatar_emoji()
+
+                            # 히스토리에 저장
                             st.session_state.chat_history.append(
                                 {
                                     "role": "user",
                                     "content": clean_input,
                                     "role_name": "You",
-                                    "emoji": "",
+                                    "avatar": "",
                                 }
                             )
                             st.session_state.chat_history.append(
@@ -349,7 +412,7 @@ def main():
                                     "role": "assistant",
                                     "content": answer,
                                     "role_name": role_name,
-                                    "emoji": emoji_html,
+                                    "avatar": avatar,
                                 }
                             )
 
@@ -358,30 +421,38 @@ def main():
             last = st.session_state.chat_history[-1]
             if last["role"] == "assistant":
                 st.markdown("### 💡 Latest response")
-                render_bot_bubble(
+                render_bot_bubble_main(
                     last["content"],
                     last["role_name"],
                     ROLE_DEFINITIONS[last["role_name"]]["ascii"],
-                    last.get("emoji", ""),
+                    last.get("avatar", "🧑‍🎨"),
                 )
 
-    # -------- 오른쪽: 전체 대화 히스토리 (말풍선) --------
+    # -------- 오른쪽: 전체 대화 히스토리 (compact bubble + expander) --------
     with col_history:
         st.subheader("Conversation History (bubble view)")
 
         if not st.session_state.chat_history:
             st.info("아직 대화가 없습니다. 질문을 한 번 해보세요!")
         else:
-            for msg in st.session_state.chat_history:
+            for i, msg in enumerate(st.session_state.chat_history):
                 if msg["role"] == "user":
                     render_user_bubble(msg["content"])
                 else:
-                    render_bot_bubble(
-                        msg["content"],
-                        msg["role_name"],
-                        ROLE_DEFINITIONS[msg["role_name"]]["ascii"],
-                        msg.get("emoji", ""),
+                    role_name_msg = msg["role_name"]
+                    ascii_art = ROLE_DEFINITIONS[role_name_msg]["ascii"]
+                    avatar = msg.get("avatar", "🧑‍🎨")
+
+                    # 1) 말풍선에는 아바타+ASCII 아트만
+                    render_bot_bubble_history_preview(
+                        role_name_msg,
+                        ascii_art,
+                        avatar,
                     )
+
+                    # 2) 실제 긴 답변은 펼치기(expander) 안에
+                    with st.expander("Show full answer"):
+                        st.markdown(msg["content"])
 
         if st.button("Clear history"):
             st.session_state.chat_history = []
