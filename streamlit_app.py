@@ -132,8 +132,11 @@ def call_openai_chat(
         raise RuntimeError(f"OpenAI API error: {e}") from e
 
 
-def generate_image_512(api_key: str, prompt: str) -> str | None:
-    """512x512 이미지 1장 생성. 실패하면 None."""
+def generate_image_512(api_key: str, prompt: str) -> str:
+    """
+    512x512 이미지 1장 생성.
+    실패하면 RuntimeError를 발생시켜서 UI에서 메시지로 보여줄 수 있게 함.
+    """
     client = OpenAI(api_key=api_key)
     try:
         img = client.images.generate(
@@ -144,8 +147,8 @@ def generate_image_512(api_key: str, prompt: str) -> str | None:
         )
         return img.data[0].url
     except OpenAIError as e:
-        print("Image generation error:", e)
-        return None
+        # 여기서 바로 None으로 숨기지 말고 에러를 위로 전달
+        raise RuntimeError(f"Image generation failed: {e}") from e
 
 
 # ------------------------------
@@ -238,11 +241,18 @@ def main():
 
                         image_url = None
                         if answer is not None:
-                            # 이미지 생성 (512x512)
+                            # 1) 텍스트 답변은 이미 도착한 상태
+                            # 2) 이미지 생성은 별도의 try/except로 감싸서,
+                            #    실패해도 앱이 죽지 않고 에러 메시지만 보여주게 함
                             img_prompt = (
                                 f"{role_name} style concept illustration for:\n{clean_input}"
                             )
-                            image_url = generate_image_512(api_key, img_prompt)
+                            try:
+                                image_url = generate_image_512(api_key, img_prompt)
+                            except RuntimeError as img_err:
+                                # 여기서 직접 에러를 화면에 띄움
+                                st.warning(str(img_err))
+                                image_url = None
 
                             # 히스토리 추가 (user + assistant)
                             st.session_state.chat_history.append(
