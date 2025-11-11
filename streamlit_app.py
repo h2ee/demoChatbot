@@ -233,9 +233,10 @@ def inject_chat_css():
   color: #444;
 }
 
-/* history 영역: 봇 말풍선 높이 고정 + overflow hidden */
+/* history 영역: 봇 말풍선 높이 고정 + overflow hidden
+   (아스키 아트 3~4줄은 보이도록 넉넉하게 설정) */
 .chat-history-bot .chat-bubble {
-  max-height: 90px;
+  max-height: 130px;
   overflow: hidden;
 }
 </style>
@@ -284,8 +285,8 @@ def render_bot_bubble_main(text: str, role_name: str, ascii_art: str, emoji_html
 def render_bot_bubble_history_preview(role_name: str, ascii_art: str, emoji_html: str):
     """
     히스토리 뷰에서 사용하는 '압축 버전' 말풍선.
-    - 사람 이모지 + Role header + ASCII 아트만 보임
-    - 긴 답변 텍스트는 바로 아래 expander에 넣음
+    - 아바타 + Role header + ASCII 아트만 보임
+    - 실제 긴 텍스트는 아래 expander에 따로 표시
     """
     st.markdown(
         f"""
@@ -443,7 +444,7 @@ def main():
                     ascii_art = ROLE_DEFINITIONS[role_name_msg]["ascii"]
                     avatar = msg.get("avatar", "🧑‍🎨")
 
-                    # 1) 말풍선에는 아바타+ASCII 아트만
+                    # 1) 말풍선에는 아바타 + Role header + ASCII 아트까지만
                     render_bot_bubble_history_preview(
                         role_name_msg,
                         ascii_art,
