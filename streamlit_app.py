@@ -1,40 +1,14 @@
 # streamlit_app.py
-# Role-based Creative Chatbot
+# Role-based Creative Chatbot (no avatars)
 # - OpenAI 텍스트 + 512x512 이미지 생성
-# - 역할별 프롬프트 + ASCII 헤더
-# - Latest 영역: 이미지 왼쪽 / 텍스트 오른쪽 / 얇은 캡션
+# - Latest: 이미지 왼쪽 / 텍스트 오른쪽 / 얇은 캡션
 # - History: 작은 썸네일 + ASCII 아트 + 펼치기(expander)
 
 from typing import List, Dict
-import html as html_lib  # ★ HTML 엔티티 → 이모지 문자로 디코딩용
 
 import requests
 import streamlit as st
 from openai import OpenAI, OpenAIError
-
-
-# ------------------------------
-# 0. EmojiHub (Avatar용 사람 이모지)
-# ------------------------------
-EMOJI_API_BASE = "https://emojihub.yurace.pro/api"
-
-
-def get_avatar_emoji() -> str:
-    """사람 이모지 카테고리에서 랜덤 아바타 하나 (순수 이모지 문자로 반환)."""
-    try:
-        resp = requests.get(
-            f"{EMOJI_API_BASE}/random/category/smileys-and-people", timeout=5
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        html_codes = data.get("htmlCode") or []
-        if html_codes:
-            # 예: "&#128513;" 같은 문자열을 😊 같은 실제 이모지로 변환
-            return html_lib.unescape(html_codes[0])
-    except Exception:
-        pass
-    # 실패 시 기본 사람 이모지
-    return "🧑‍🎨"
 
 
 # ------------------------------
@@ -185,7 +159,7 @@ def main():
 
     # 세션 상태 초기화
     if "chat_history" not in st.session_state:
-        # 각 항목: {"role","content","role_name","avatar","image_url"}
+        # 각 항목: {"role","content","role_name","image_url"}
         st.session_state.chat_history = []
 
     # -------- 사이드바 --------
@@ -270,15 +244,12 @@ def main():
                             )
                             image_url = generate_image_512(api_key, img_prompt)
 
-                            avatar = get_avatar_emoji()
-
                             # 히스토리 추가 (user + assistant)
                             st.session_state.chat_history.append(
                                 {
                                     "role": "user",
                                     "content": clean_input,
                                     "role_name": "You",
-                                    "avatar": "🙂",
                                     "image_url": None,
                                 }
                             )
@@ -287,7 +258,6 @@ def main():
                                     "role": "assistant",
                                     "content": answer,
                                     "role_name": role_name,
-                                    "avatar": avatar,
                                     "image_url": image_url,
                                 }
                             )
@@ -314,9 +284,7 @@ def main():
                 else:
                     caption_text = "AI-generated concept image"
 
-                with st.chat_message(
-                    "assistant", avatar=last.get("avatar", "🧑‍🎨")
-                ):
+                with st.chat_message("assistant"):
                     # 역할 이름 + ASCII 헤더
                     st.markdown(f"**{last['role_name']}**")
                     st.markdown(f"```text\n{ascii_art}\n```")
@@ -385,13 +353,11 @@ def main():
         else:
             for msg in st.session_state.chat_history:
                 if msg["role"] == "user":
-                    with st.chat_message("user", avatar=msg.get("avatar", "🙂")):
+                    with st.chat_message("user"):
                         st.markdown(msg["content"])
                 else:
                     ascii_art = ROLE_DEFINITIONS[msg["role_name"]]["ascii"].strip()
-                    with st.chat_message(
-                        "assistant", avatar=msg.get("avatar", "🧑‍🎨")
-                    ):
+                    with st.chat_message("assistant"):
                         # 위쪽: 작은 썸네일 + ASCII 아트
                         c1, c2 = st.columns([1, 4])
                         with c1:
